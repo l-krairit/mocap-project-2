@@ -60,6 +60,7 @@ const BUILT_IN_SONGS = [
   { name: 'Between The Bars', artist: 'Elliott Smith',  url: 'audios/Between The Bars.mp3' },
   { name: 'Fallen Down',      artist: 'Toby Fox',       url: 'audios/Fallen Down.mp3' },
   { name: 'High and Dry',     artist: 'Radiohead',      url: 'audios/Radiohead - High and Dry.mp3' },
+  { name: 'Are You Looking Up (Live)', artist: 'Mk.gee',      url: 'audios/Mk.gee - Are You Looking Up (Live).mp3' },
 ];
 
 // ── App state ────────────────────────────────────────────────────────────────

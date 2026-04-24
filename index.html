@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GestureBeats — DJ Controller</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Header -->
+    <header class="dj-header">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">GestureBeats</span>
+      </div>
+      <div class="gesture-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Initializing…</span>
+      </div>
+      <div class="header-right">
+        <span class="bpm-label">BPM</span>
+        <span class="bpm-value" id="bpmValue">—</span>
+      </div>
+    </header>
+
+    <!-- Main 3-column DJ layout -->
+    <main class="dj-main">
+
+      <!-- LEFT: Song Library -->
+      <aside class="song-library">
+        <div class="panel-header">
+          <span>LIBRARY</span>
+          <button class="icon-btn" id="addSongBtn" title="Add songs">＋</button>
+          <input type="file" id="songFileInput" accept="audio/*" multiple hidden />
+        </div>
+
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="Search tracks…" />
+        </div>
+
+        <div class="song-list" id="songList">
+          <div class="empty-state">
+            <div class="empty-icon">♪</div>
+            <div>Drop songs here or click <strong>＋</strong></div>
+            <div class="empty-sub">Supports MP3, WAV, OGG, FLAC</div>
+          </div>
+        </div>
+
+        <div class="liked-section">
+          <div class="liked-header">
+            <span class="heart-icon">♥</span> LIKED SONGS
+          </div>
+          <div class="liked-list" id="likedList">
+            <div class="empty-sub" style="padding:8px 12px">No liked songs yet</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTER: DJ Decks -->
+      <section class="dj-center">
+
+        <!-- Turntable + track info -->
+        <div class="deck-row">
+          <div class="turntable-wrap">
+            <div class="turntable" id="turntable">
+              <div class="vinyl-grooves"></div>
+              <div class="disc-label" id="discLabel">
+                <span class="disc-title" id="discTitle">SELECT</span>
+                <span class="disc-subtitle" id="discSub">A TRACK</span>
+              </div>
+            </div>
+            <div class="needle-arm"></div>
+          </div>
+
+          <div class="track-meta">
+            <div class="track-name" id="trackName">No Track Selected</div>
+            <div class="track-artist" id="trackArtist">—</div>
+            <div class="track-badges">
+              <span class="badge" id="shuffleBadge">SHUFFLE OFF</span>
+              <span class="badge liked-badge" id="likedBadge" style="display:none">♥ LIKED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-row">
+          <span class="time-label" id="currentTime">0:00</span>
+          <div class="timeline-bar" id="timelineBar">
+            <div class="timeline-fill" id="timelineFill"></div>
+            <div class="timeline-dot" id="timelineDot"></div>
+          </div>
+          <span class="time-label" id="totalTime">0:00</span>
+        </div>
+
+        <!-- Transport controls -->
+        <div class="controls-row">
+          <div class="side-ctrl">
+            <div class="ctrl-label">SPEED</div>
+            <div class="ctrl-value" id="speedValue">1.00×</div>
+          </div>
+
+          <div class="transport">
+            <button class="t-btn" id="btnRewind" title="Rewind (←👍 RH)">⏮</button>
+            <button class="t-btn seek-back" id="btnSeekBack" title="-15s (←👍 LH)">−15</button>
+            <button class="t-btn play-btn" id="btnPlay" title="Play/Pause (👌)">▶</button>
+            <button class="t-btn stop-btn" id="btnStop" title="Stop (✋)">⏹</button>
+            <button class="t-btn seek-fwd" id="btnSeekFwd" title="+15s (👍→ LH)">+15</button>
+            <button class="t-btn" id="btnSkip" title="Skip (👍→ RH)">⏭</button>
+          </div>
+
+          <div class="side-ctrl">
+            <div class="ctrl-label">SHUFFLE</div>
+            <div class="ctrl-value shuffle-val" id="shuffleValue">OFF</div>
+          </div>
+        </div>
+
+        <!-- Volume -->
+        <div class="vol-row">
+          <span class="vol-label">VOL</span>
+          <div class="vol-bar">
+            <div class="vol-fill" id="volFill" style="width:80%"></div>
+          </div>
+          <span class="vol-num" id="volNum">80</span>
+          <span class="vol-unit">%</span>
+        </div>
+
+        <!-- Visualizer -->
+        <canvas class="visualizer" id="visualizer"></canvas>
+
+        <!-- Gesture guide -->
+        <div class="gesture-guide">
+          <div class="guide-title">GESTURE CONTROLS</div>
+          <div class="guide-grid">
+            <div class="guide-card">
+              <div class="guide-emoji">✊</div>
+              <div class="guide-action">Volume</div>
+              <div class="guide-desc">Fist left / right</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-emoji">✋</div>
+              <div class="guide-action">Stop</div>
+              <div class="guide-desc">Open palm</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-emoji">👌</div>
+              <div class="guide-action">Play</div>
+              <div class="guide-desc">OK sign</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-emoji">☝️</div>
+              <div class="guide-action">Speed Up</div>
+              <div class="guide-desc">Point up</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-emoji">👇</div>
+              <div class="guide-action">Speed Down</div>
+              <div class="guide-desc">Point down</div>
+            </div>
+            <div class="guide-card rh">
+              <div class="guide-emoji"><span class="thumb-right">👍</span></div>
+              <div class="guide-action">Rewind</div>
+              <div class="guide-desc">Thumb right · RH</div>
+            </div>
+            <div class="guide-card rh">
+              <div class="guide-emoji"><span class="thumb-left">👍</span></div>
+              <div class="guide-action">Skip</div>
+              <div class="guide-desc">Thumb left · RH</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-emoji">✌️</div>
+              <div class="guide-action">Random Song</div>
+              <div class="guide-desc">Victory sign</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-emoji">🤟</div>
+              <div class="guide-action">Like ♥</div>
+              <div class="guide-desc">Finger heart</div>
+            </div>
+            <div class="guide-card lh">
+              <div class="guide-emoji"><span class="thumb-right">👍</span></div>
+              <div class="guide-action">−15 sec</div>
+              <div class="guide-desc">Thumb right · LH</div>
+            </div>
+            <div class="guide-card lh">
+              <div class="guide-emoji"><span class="thumb-left">👍</span></div>
+              <div class="guide-action">+15 sec</div>
+              <div class="guide-desc">Thumb left · LH</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT: Camera + Gesture feedback -->
+      <aside class="gesture-panel">
+        <div class="panel-header">
+          <span>GESTURE CAM</span>
+          <span class="cam-badge" id="camBadge">●&nbsp;LIVE</span>
+        </div>
+
+        <div class="cam-wrap">
+          <video id="webcam" autoplay playsinline muted></video>
+          <canvas id="gestureCanvas"></canvas>
+          <div class="gesture-toast" id="gestureToast">
+            <div class="toast-gesture" id="toastGesture">—</div>
+            <div class="toast-action" id="toastAction"></div>
+            <div class="toast-hand" id="toastHand"></div>
+          </div>
+        </div>
+
+        <!-- Live gesture readout -->
+        <div class="gesture-readout">
+          <div class="readout-row" id="readoutLeft">
+            <span class="hand-tag lh">LH</span>
+            <span class="hand-gesture" id="lhGesture">—</span>
+          </div>
+          <div class="readout-row" id="readoutRight">
+            <span class="hand-tag rh">RH</span>
+            <span class="hand-gesture" id="rhGesture">—</span>
+          </div>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="dropZone">
+          <span>Drop audio files here</span>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+
+  <script type="module" src="js/app.js?v=3"></script>
+</body>
+</html>

@@ -15,6 +15,9 @@ const gestureCanvas = $('gestureCanvas');
 
 const turntable     = $('turntable');
 const tonearmPivot  = $('tonearmPivot');
+const discLabel     = $('discLabel');
+const discArt       = $('discArt');
+const discText      = $('discText');
 const discTitle     = $('discTitle');
 const discSub       = $('discSub');
 const trackName     = $('trackName');
@@ -60,7 +63,8 @@ const BUILT_IN_SONGS = [
   { name: 'Between The Bars', artist: 'Elliott Smith',  url: 'audios/Between The Bars.mp3' },
   { name: 'Fallen Down',      artist: 'Toby Fox',       url: 'audios/Fallen Down.mp3' },
   { name: 'High and Dry',     artist: 'Radiohead',      url: 'audios/Radiohead - High and Dry.mp3' },
-  { name: 'Are You Looking Up (Live)', artist: 'Mk.gee',      url: 'audios/Mk.gee - Are You Looking Up (Live).mp3' },
+  { name: 'Coming Up Roses',  artist: 'Harry Styles',   url: 'audios/Coming Up Roses.mp3' },
+  { name: 'Sodium Chloride',  artist: 'Panchiko',       url: 'audios/Sodium Chloride.mp3' },
 ];
 
 // ── App state ────────────────────────────────────────────────────────────────
@@ -82,6 +86,7 @@ async function init() {
   player.addEventListener('shuffleChanged', onShuffleChanged);
   player.addEventListener('likedChanged',   onLikedChanged);
   player.addEventListener('libraryChanged', renderSongList);
+  player.addEventListener('artworkLoaded',  onArtworkLoaded);
   player.addEventListener('timeupdate',     onTimeUpdate);
 
   // Button fallbacks
@@ -177,11 +182,23 @@ function onStateChanged() {
     trackArtist.textContent = song.artist;
     discTitle.textContent   = song.name.toUpperCase().slice(0, 14);
     discSub.textContent     = song.artist.toUpperCase().slice(0, 12);
+    if (song.artwork) {
+      discArt.src = song.artwork;
+      discLabel.classList.add('has-art');
+      discText.setAttribute('aria-hidden', 'true');
+    } else {
+      discArt.removeAttribute('src');
+      discLabel.classList.remove('has-art');
+      discText.removeAttribute('aria-hidden');
+    }
   } else {
     trackName.textContent   = 'No Track Selected';
     trackArtist.textContent = '—';
     discTitle.textContent   = 'SELECT';
     discSub.textContent     = 'A TRACK';
+    discArt.removeAttribute('src');
+    discLabel.classList.remove('has-art');
+    discText.removeAttribute('aria-hidden');
   }
 
   // Highlight active song in list
@@ -191,6 +208,10 @@ function onStateChanged() {
 
   // Liked badge
   likedBadge.style.display = player.isLiked(player.currentIndex) ? '' : 'none';
+}
+
+function onArtworkLoaded({ detail: { index } }) {
+  if (index === player.currentIndex) onStateChanged();
 }
 
 function onVolumeChanged() {
@@ -403,6 +424,10 @@ function escHtml(str) {
 const GESTURE_LABELS = {
   Open_Palm:   '✋ Open Palm',
   OK:          '👌 OK',
+  Pointing_Up: '☝️ Point Up',
+  Pointing_Down: '👇 Point Down',
+  Thumb_Up:    '👍 Thumb Up',
+  Thumb_Down:  '👎 Thumb Down',
   Thumb_Right: '👍→ Thumb Right',
   Thumb_Left:  '←👍 Thumb Left',
   Gun_Right:   '👉 Point Right',

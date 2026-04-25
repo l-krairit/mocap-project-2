@@ -254,12 +254,12 @@ button { font-family: inherit; cursor: pointer; }
 .turntable-wrap {
   position: relative;
   flex-shrink: 0;
-  width: 210px;
-  height: 210px;
+  width: 260px;
+  height: 260px;
 }
 
 .vinyl {
-  width: 210px; height: 210px;
+  width: 260px; height: 260px;
   border-radius: 50%;
   position: relative;
   display: flex;
@@ -277,16 +277,17 @@ button { font-family: inherit; cursor: pointer; }
       #050505 0px, #1e1e1e 1px, #080808 2px, #181818 3px, #050505 4px
     );
   box-shadow:
+    0 0 44px rgba(255,255,255,.2),
     0 0 0 3px #1a1a1a,
     0 0 0 4px rgba(255,255,255,.06),
     0 24px 64px rgba(0,0,0,.75);
 }
 
-.vinyl.spinning { animation: spin 2s linear infinite; }
+.vinyl.spinning { animation: spin 5s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .vinyl-label {
-  width: 58px; height: 58px;
+  width: 140px; height: 140px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent) 0%, #9b8eff 100%);
   display: flex;
@@ -301,6 +302,25 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: 0 2px 12px rgba(0,0,0,.5);
 }
 
+.disc-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.disc-text {
+  position: relative;
+  z-index: 1;
+  transition: opacity .2s ease;
+}
+
+.vinyl-label.has-art .disc-art { opacity: 1; }
+.vinyl-label.has-art .disc-text { opacity: 0; }
+
 .vinyl-spindle {
   position: absolute;
   width: 7px; height: 7px;
@@ -313,18 +333,18 @@ button { font-family: inherit; cursor: pointer; }
 
 .disc-title {
   font-family: 'Inter', sans-serif;
-  font-size: .42rem;
+  font-size: .5rem;
   font-weight: 700;
   letter-spacing: .5px;
   color: rgba(255,255,255,.95);
   overflow: hidden;
-  max-width: 50px;
+  max-width: 68px;
   white-space: nowrap;
   text-overflow: ellipsis;
   display: block;
 }
 .disc-subtitle {
-  font-size: .38rem;
+  font-size: .44rem;
   color: rgba(255,255,255,.65);
 }
 
@@ -364,11 +384,11 @@ button { font-family: inherit; cursor: pointer; }
   top: 0; right: 0;
   width: 22px; height: 22px;
   transform-origin: 11px 11px;
-  transform: rotate(0deg);           /* default/paused: arm over disc */
+  transform: rotate(-54deg);           /* default/paused: arm over disc */
   transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .tonearm-pivot.playing {
-  transform: rotate(85deg);          /* playing: arm parked away from disc */
+  transform: rotate(60deg);          /* playing: arm parked away from disc */
 }
 
 /* The arm tube */

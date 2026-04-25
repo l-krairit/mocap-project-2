@@ -14,6 +14,7 @@ export class MusicPlayer extends EventTarget {
   #isPlaying = false;
   #isShuffle = false;
   #liked = new Set();
+  #metadataParserPromise = null;
 
   // track last known duration for external queries
   #duration = 0;
@@ -77,13 +78,16 @@ export class MusicPlayer extends EventTarget {
       if (!file.type.startsWith('audio/')) continue;
       const url = URL.createObjectURL(file);
       const name = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
-      this.#songs.push({ name, artist: 'Local File', url, file });
+      this.#songs.push({ name, artist: 'Local File', url, file, artwork: null });
+      this.#loadArtworkForSong(this.#songs.length - 1);
     }
     this.#emit('libraryChanged');
   }
 
   addBuiltIn(list) {
-    this.#songs.push(...list);
+    const start = this.#songs.length;
+    this.#songs.push(...list.map(song => ({ ...song, artwork: song.artwork ?? null })));
+    for (let i = start; i < this.#songs.length; i++) this.#loadArtworkForSong(i);
     this.#emit('libraryChanged');
   }
 
@@ -206,6 +210,151 @@ export class MusicPlayer extends EventTarget {
   isLiked(index) { return this.#liked.has(index); }
 
   // ── Internal ───────────────────────────────────────────────
+  async #loadArtworkForSong(index) {
+    const song = this.#songs[index];
+    if (!song || song._artworkRequested || song.artwork) return;
+
+    song._artworkRequested = true;
+    try {
+      let blob;
+      if (song.file) {
+        blob = song.file;
+      } else if (song.url) {
+        const res = await fetch(song.url);
+        if (!res.ok) return;
+        blob = await res.blob();
+      } else {
+        return;
+      }
+
+      const cover = await this.#extractCoverObjectUrl(blob);
+      if (!cover) return;
+
+      song.artwork = cover;
+      this.#emit('artworkLoaded', { index });
+      if (index === this.#currentIndex) this.#emit('stateChanged');
+    } catch {
+      // Ignore metadata parsing issues; fallback text stays visible.
+    }
+  }
+
+  async #extractCoverObjectUrl(blob) {
+    const parser = await this.#getMetadataParser();
+    if (parser?.parseBlob) {
+      try {
+        const meta = await parser.parseBlob(blob, { skipPostHeaders: true, duration: false });
+        const pic = meta?.common?.picture?.[0];
+        if (pic?.data?.length) {
+          const mime = pic.format || 'image/jpeg';
+          return URL.createObjectURL(new Blob([pic.data], { type: mime }));
+        }
+      } catch {
+        // Fallback parser below handles some MP3s even if generic parser fails.
+      }
+    }
+
+    const buffer = await blob.arrayBuffer();
+    return this.#extractMp3CoverObjectUrl(buffer);
+  }
+
+  async #getMetadataParser() {
+    if (!this.#metadataParserPromise) {
+      this.#metadataParserPromise = import(
+        'https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.10/+esm'
+      ).catch(() => null);
+    }
+    return this.#metadataParserPromise;
+  }
+
+  #extractMp3CoverObjectUrl(buffer) {
+    const bytes = new Uint8Array(buffer);
+    if (bytes.length < 10) return null;
+    if (bytes[0] !== 0x49 || bytes[1] !== 0x44 || bytes[2] !== 0x33) return null; // ID3
+
+    const version = bytes[3];
+    const tagSize = this.#readSynchsafeInt(bytes, 6);
+    const end = Math.min(bytes.length, 10 + tagSize);
+    let off = 10;
+
+    while (off + 10 <= end) {
+      const id = String.fromCharCode(bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]);
+      if (!/^[A-Z0-9]{4}$/.test(id)) break;
+
+      const frameSize = version === 4
+        ? this.#readSynchsafeInt(bytes, off + 4)
+        : (((bytes[off + 4] << 24) >>> 0) | (bytes[off + 5] << 16) | (bytes[off + 6] << 8) | bytes[off + 7]);
+      if (frameSize <= 0) { off += 10; continue; }
+
+      const dataStart = off + 10;
+      const dataEnd = dataStart + frameSize;
+      if (dataEnd > end) break;
+
+      if (id === 'APIC') {
+        const apic = bytes.subarray(dataStart, dataEnd);
+        return this.#parseApicFrame(apic);
+      }
+
+      off = dataEnd;
+    }
+
+    return null;
+  }
+
+  #parseApicFrame(apic) {
+    if (!apic || apic.length < 8) return null;
+
+    const encoding = apic[0];
+    let p = 1;
+
+    const mimeEnd = this.#findNull(apic, p);
+    if (mimeEnd < 0) return null;
+    const mime = this.#decodeLatin1(apic.subarray(p, mimeEnd)) || 'image/jpeg';
+    p = mimeEnd + 1;
+
+    if (p >= apic.length) return null;
+    p += 1; // picture type byte
+
+    const descEnd = (encoding === 1 || encoding === 2)
+      ? this.#findDoubleNull(apic, p)
+      : this.#findNull(apic, p);
+    if (descEnd < 0) return null;
+    p = descEnd + ((encoding === 1 || encoding === 2) ? 2 : 1);
+
+    if (p >= apic.length) return null;
+    const imageBytes = apic.subarray(p);
+    const imageType = /^image\//i.test(mime) ? mime : 'image/jpeg';
+    const blob = new Blob([imageBytes], { type: imageType });
+    return URL.createObjectURL(blob);
+  }
+
+  #readSynchsafeInt(bytes, start) {
+    if (start + 3 >= bytes.length) return 0;
+    return ((bytes[start] & 0x7f) << 21)
+      | ((bytes[start + 1] & 0x7f) << 14)
+      | ((bytes[start + 2] & 0x7f) << 7)
+      | (bytes[start + 3] & 0x7f);
+  }
+
+  #findNull(arr, start) {
+    for (let i = start; i < arr.length; i++) {
+      if (arr[i] === 0) return i;
+    }
+    return -1;
+  }
+
+  #findDoubleNull(arr, start) {
+    for (let i = start; i < arr.length - 1; i++) {
+      if (arr[i] === 0 && arr[i + 1] === 0) return i;
+    }
+    return -1;
+  }
+
+  #decodeLatin1(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
+    return out;
+  }
+
   #emit(type, detail = {}) {
     this.dispatchEvent(new CustomEvent(type, { detail }));
   }

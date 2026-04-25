@@ -6,14 +6,13 @@
  *   Victory    → shuffle toggle
  *   ILoveYou   → like (finger heart)
  *   Closed_Fist (RH) + vertical movement → volume up/down
- *   Closed_Fist (LH) + vertical movement → speed up/down
  *
  * Custom landmark-based gestures:
  *   OK          → play/pause  (thumb-index pinch, other fingers extended)
- *   Thumb_Right  → skip (RH only)
- *   Thumb_Left   → rewind (RH only)
- *   Gun_Right    → +15s (LH only: index pointing right + thumb up + M/R/P curled)
- *   Gun_Left     → -15s (LH only: index pointing left  + thumb up + M/R/P curled)
+ *   Pointing_Up (both hands)   → speed up
+ *   Pointing_Down (both hands) → speed down
+ *   Gun_Right    → RH: skip, LH: +15s (index pointing right + thumb up + M/R/P curled)
+ *   Gun_Left     → RH: rewind, LH: -15s (index pointing left + thumb up + M/R/P curled)
  */
 
 import {
@@ -45,14 +44,14 @@ export class GestureController extends EventTarget {
   // Separate timestamps so continuous and discrete gestures never block each other
   #lastActionTime = 0;   // governs discrete gestures only
   #lastVolumeTime = 0;   // governs volume nudges (RH fist)
-  #lastSpeedTime  = 0;   // governs speed nudges  (LH fist)
+  #lastSpeedTime  = 0;   // governs speed nudges  (both hands pointing)
   #lastFistTime   = 0;   // suppresses Open_Palm→stop during fist transitions
   // Per-hand wrist X history for fist-movement detection
   #wristYHistory = new Map();
 
   static GLOBAL_COOLDOWN = 1800;  // ms between discrete gesture triggers
   static VOLUME_COOLDOWN = 1200;  // ms between volume nudges (fist movement)
-  static SPEED_COOLDOWN  = 1200;  // ms between speed nudges  (fist movement)
+  static SPEED_COOLDOWN  = 1200;  // ms between speed nudges  (both hands pointing)
 
   constructor(videoEl, canvasEl) {
     super();
@@ -143,9 +142,11 @@ export class GestureController extends EventTarget {
         if (!landmarks) return;
 
         const gesture = this.#classify(builtIn, landmarks);
-        hands.push({ gesture, handedness: handLabel });
+        hands.push({ gesture, handedness: handLabel, landmarks });
         this.#route(gesture, handLabel, i, landmarks);
       });
+
+      this.#routeTwoHandSpeed(hands);
       this.#dispatch('frameUpdate', { hands });
     } else {
       this.#wristYHistory.clear();
@@ -158,6 +159,8 @@ export class GestureController extends EventTarget {
   // ── Custom gesture classifier ──────────────────────────────
   #classify(builtIn, l) {
     const thumbTip  = l[LM.THUMB_TIP];
+    const thumbMcp  = l[LM.THUMB_MCP];
+    const thumbIp   = l[LM.THUMB_IP];
     const wrist     = l[LM.WRIST];
     const indexTip  = l[LM.INDEX_TIP];
     const indexPip  = l[LM.INDEX_PIP];
@@ -183,6 +186,7 @@ export class GestureController extends EventTarget {
     const idxVecX = indexTip.x - indexMcp.x;
     const idxVecY = indexTip.y - indexMcp.y;
     const idxLen  = Math.hypot(idxVecX, idxVecY);
+    const indexPointingUp = idxLen > 0.07 && (idxVecY / idxLen) < -0.6;
     // Index is pointing down when the normalised Y component is strongly positive (downward in image)
     const indexPointingDown = idxLen > 0.07 && (idxVecY / idxLen) > 0.6;
 
@@ -194,6 +198,7 @@ export class GestureController extends EventTarget {
     const middleFolded = Math.hypot(middleTip.x - l[LM.MIDDLE_MCP].x, middleTip.y - l[LM.MIDDLE_MCP].y) < 0.18;
     const ringFolded   = Math.hypot(ringTip.x   - l[LM.RING_MCP].x,   ringTip.y   - l[LM.RING_MCP].y)   < 0.18;
     const pinkyFolded  = Math.hypot(pinkyTip.x  - l[LM.PINKY_MCP].x,  pinkyTip.y  - l[LM.PINKY_MCP].y)  < 0.18;
+    if (indexPointingUp && middleFolded && ringFolded && pinkyFolded) return 'Pointing_Up';
     if (indexPointingDown && middleFolded && ringFolded && pinkyFolded) return 'Pointing_Down';
 
     // Gun gesture: index pointing horizontally, thumb up, M/R/P curled
@@ -204,12 +209,32 @@ export class GestureController extends EventTarget {
       return idxVecX < 0 ? 'Gun_Right' : 'Gun_Left';
     }
 
-    // Thumb left / right: all fingers curled, thumb extended horizontally
+    // Thumb up / down / left / right: all fingers curled, thumb clearly extended + oriented
     if (indexCurl && middleCurl && ringCurl && pinkyCurl) {
-      const dx = thumbTip.x - wrist.x;   // raw camera coords
-      const dy = Math.abs(thumbTip.y - wrist.y);
-      // Thumb must be clearly horizontal (|dx| > |dy|) and extended far enough
-      if (Math.abs(dx) > dy && Math.abs(dx) > 0.10) {
+      const dx = thumbTip.x - wrist.x; // raw camera coords
+      const dy = thumbTip.y - wrist.y;
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+
+      const thumbVecX = thumbTip.x - thumbMcp.x;
+      const thumbVecY = thumbTip.y - thumbMcp.y;
+      const thumbLen = Math.hypot(thumbVecX, thumbVecY);
+      const thumbExtended = thumbLen > 0.11;
+      const thumbFarFromPalm = Math.hypot(thumbTip.x - wrist.x, thumbTip.y - wrist.y)
+        > Math.hypot(thumbMcp.x - wrist.x, thumbMcp.y - wrist.y) + 0.02;
+      const thumbSegmentStraight = Math.hypot(thumbTip.x - thumbIp.x, thumbTip.y - thumbIp.y) > 0.05;
+
+      if (!(thumbExtended && thumbFarFromPalm && thumbSegmentStraight)) {
+        return builtIn;
+      }
+
+      // Vertical thumbs for LH speed controls
+      if (ady > adx * 1.15 && ady > 0.10) {
+        return dy < -0.03 ? 'Thumb_Up' : dy > 0.03 ? 'Thumb_Down' : builtIn;
+      }
+
+      // Horizontal thumbs remain available for readout/debugging
+      if (adx > ady * 1.15 && adx > 0.10) {
         // Raw camera: user's right hand, thumb right → thumb appears to camera's LEFT → dx < 0
         // (The canvas is CSS-mirrored so visually it shows correctly)
         return dx < 0 ? 'Thumb_Right' : 'Thumb_Left';
@@ -228,8 +253,7 @@ export class GestureController extends EventTarget {
     const isRight = handedness === 'Right';
     const now = Date.now();
 
-    // ── Continuous: Closed fist + vertical wrist movement ──
-    // RH → volume,  LH → speed
+    // ── Continuous: Closed fist + vertical wrist movement (RH volume only) ──
     // Image Y increases downward: fist moves up → dy < 0 → up
     //                             fist moves down → dy > 0 → down
     if (gesture === 'Closed_Fist') {
@@ -237,16 +261,9 @@ export class GestureController extends EventTarget {
       const prev   = this.#wristYHistory.get(handIdx);
       if (prev !== undefined) {
         const dy = wristY - prev;
-        if (isRight) {
-          if (now - this.#lastVolumeTime > GestureController.VOLUME_COOLDOWN) {
-            if (dy < -0.012) { this.#lastVolumeTime = now; this.#fire('volume_up',   gesture, handedness); }
-            else if (dy > 0.012) { this.#lastVolumeTime = now; this.#fire('volume_down', gesture, handedness); }
-          }
-        } else {
-          if (now - this.#lastSpeedTime > GestureController.SPEED_COOLDOWN) {
-            if (dy < -0.012) { this.#lastSpeedTime = now; this.#fire('speed_up',   gesture, handedness); }
-            else if (dy > 0.012) { this.#lastSpeedTime = now; this.#fire('speed_down', gesture, handedness); }
-          }
+        if (isRight && now - this.#lastVolumeTime > GestureController.VOLUME_COOLDOWN) {
+          if (dy < -0.012) { this.#lastVolumeTime = now; this.#fire('volume_up',   gesture, handedness); }
+          else if (dy > 0.012) { this.#lastVolumeTime = now; this.#fire('volume_down', gesture, handedness); }
         }
       }
       this.#lastFistTime = now;
@@ -264,10 +281,8 @@ export class GestureController extends EventTarget {
       case 'OK':           action = 'play';        break;
       case 'Victory':      action = 'shuffle';     break;
       case 'ILoveYou':     action = 'like';        break;
-      case 'Thumb_Right':  if (isRight) action = 'skip';            break;
-      case 'Thumb_Left':   if (isRight) action = 'rewind';          break;
-      case 'Gun_Right':    if (!isRight) action = 'seek_forward';   break;
-      case 'Gun_Left':     if (!isRight) action = 'seek_backward';  break;
+      case 'Gun_Right':    action = isRight ? 'skip' : 'seek_forward';   break;
+      case 'Gun_Left':     action = isRight ? 'rewind' : 'seek_backward'; break;
     }
 
     if (action) {
@@ -278,6 +293,28 @@ export class GestureController extends EventTarget {
 
   #fire(action, gesture, handedness) {
     this.#dispatch('gesture', { action, gesture, handedness });
+  }
+
+  #routeTwoHandSpeed(hands) {
+    if (hands.length < 2) return;
+
+    const left = hands.find(h => h.handedness === 'Left');
+    const right = hands.find(h => h.handedness === 'Right');
+    if (!left || !right) return;
+
+    const now = Date.now();
+    if (now - this.#lastSpeedTime <= GestureController.SPEED_COOLDOWN) return;
+
+    if (left.gesture === 'Pointing_Up' && right.gesture === 'Pointing_Up') {
+      this.#lastSpeedTime = now;
+      this.#fire('speed_up', 'Pointing_Up', 'Both');
+      return;
+    }
+
+    if (left.gesture === 'Pointing_Down' && right.gesture === 'Pointing_Down') {
+      this.#lastSpeedTime = now;
+      this.#fire('speed_down', 'Pointing_Down', 'Both');
+    }
   }
 
   #dispatch(type, detail) {

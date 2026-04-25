@@ -401,15 +401,15 @@ function escHtml(str) {
 
 // ── Label maps ────────────────────────────────────────────────────────────────
 const GESTURE_LABELS = {
-  Open_Palm:    '✋ Open Palm',
-  OK:           '👌 OK',
-  Pointing_Up:  '☝️ Point Up',
-  Pointing_Down:'👇 Point Down',
-  Thumb_Right:  '👍→ Thumb Right',
-  Thumb_Left:   '←👍 Thumb Left',
-  Victory:      '✌️ Victory',
-  ILoveYou:     '🤟 I Love You',
-  Closed_Fist:  '✊ Fist',
+  Open_Palm:   '✋ Open Palm',
+  OK:          '👌 OK',
+  Thumb_Right: '👍→ Thumb Right',
+  Thumb_Left:  '←👍 Thumb Left',
+  Gun_Right:   '👉 Point Right',
+  Gun_Left:    '👈 Point Left',
+  Victory:     '✌️ Victory',
+  ILoveYou:    '🤟 I Love You',
+  Closed_Fist: '✊ Fist',
 };
 
 const ACTION_LABELS = {

@@ -67,14 +67,21 @@
         <!-- Turntable + track info -->
         <div class="deck-row">
           <div class="turntable-wrap">
-            <div class="turntable" id="turntable">
-              <div class="vinyl-grooves"></div>
-              <div class="disc-label" id="discLabel">
+            <div class="vinyl" id="turntable">
+              <div class="vinyl-label" id="discLabel">
                 <span class="disc-title" id="discTitle">SELECT</span>
                 <span class="disc-subtitle" id="discSub">A TRACK</span>
               </div>
+              <div class="vinyl-spindle"></div>
             </div>
-            <div class="needle-arm"></div>
+            <!-- Tonearm -->
+            <div class="tonearm">
+              <div class="tonearm-base"></div>
+              <div class="tonearm-pivot" id="tonearmPivot">
+                <div class="tonearm-tube"></div>
+                <div class="tonearm-head"></div>
+              </div>
+            </div>
           </div>
 
           <div class="track-meta">
@@ -99,23 +106,24 @@
 
         <!-- Transport controls -->
         <div class="controls-row">
-          <div class="side-ctrl">
-            <div class="ctrl-label">SPEED</div>
-            <div class="ctrl-value" id="speedValue">1.00×</div>
-          </div>
-
           <div class="transport">
-            <button class="t-btn" id="btnRewind" title="Rewind (←👍 RH)">⏮</button>
-            <button class="t-btn seek-back" id="btnSeekBack" title="-15s (←👍 LH)">−15</button>
-            <button class="t-btn play-btn" id="btnPlay" title="Play/Pause (👌)">▶</button>
-            <button class="t-btn stop-btn" id="btnStop" title="Stop (✋)">⏹</button>
-            <button class="t-btn seek-fwd" id="btnSeekFwd" title="+15s (👍→ LH)">+15</button>
-            <button class="t-btn" id="btnSkip" title="Skip (👍→ RH)">⏭</button>
+            <button class="t-btn" id="btnRewind" title="Rewind">⏮</button>
+            <button class="t-btn seek-back" id="btnSeekBack" title="-15s">−15</button>
+            <button class="t-btn play-btn" id="btnPlay" title="Play/Pause">▶</button>
+            <button class="t-btn stop-btn" id="btnStop" title="Stop">⏹</button>
+            <button class="t-btn seek-fwd" id="btnSeekFwd" title="+15s">+15</button>
+            <button class="t-btn" id="btnSkip" title="Skip">⏭</button>
           </div>
 
-          <div class="side-ctrl">
-            <div class="ctrl-label">SHUFFLE</div>
-            <div class="ctrl-value shuffle-val" id="shuffleValue">OFF</div>
+          <div class="side-ctrls">
+            <div class="side-ctrl">
+              <div class="ctrl-label">SPEED</div>
+              <div class="ctrl-value" id="speedValue">1.00×</div>
+            </div>
+            <div class="side-ctrl">
+              <div class="ctrl-label">SHUFFLE</div>
+              <div class="ctrl-value shuffle-val" id="shuffleValue">OFF</div>
+            </div>
           </div>
         </div>
 
@@ -173,7 +181,7 @@
             </div>
             <div class="guide-card">
               <div class="guide-emoji">✌️</div>
-              <div class="guide-action">Random Song</div>
+              <div class="guide-action">Shuffle</div>
               <div class="guide-desc">Victory sign</div>
             </div>
             <div class="guide-card">
@@ -206,11 +214,6 @@
         <div class="cam-wrap">
           <video id="webcam" autoplay playsinline muted></video>
           <canvas id="gestureCanvas"></canvas>
-          <div class="gesture-toast" id="gestureToast">
-            <div class="toast-gesture" id="toastGesture">—</div>
-            <div class="toast-action" id="toastAction"></div>
-            <div class="toast-hand" id="toastHand"></div>
-          </div>
         </div>
 
         <!-- Live gesture readout -->
@@ -225,6 +228,12 @@
           </div>
         </div>
 
+        <!-- Last gesture action -->
+        <div class="last-action-wrap">
+          <div class="last-gesture" id="lastGesture">—</div>
+          <div class="last-action" id="lastAction"></div>
+        </div>
+
         <!-- Drop zone -->
         <div class="drop-zone" id="dropZone">
           <span>Drop audio files here</span>
@@ -234,6 +243,6 @@
     </main>
   </div>
 
-  <script type="module" src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=9"></script>
 </body>
 </html>

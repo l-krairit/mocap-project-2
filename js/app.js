@@ -14,6 +14,7 @@ const webcamEl      = $('webcam');
 const gestureCanvas = $('gestureCanvas');
 
 const turntable     = $('turntable');
+const tonearmPivot  = $('tonearmPivot');
 const discTitle     = $('discTitle');
 const discSub       = $('discSub');
 const trackName     = $('trackName');
@@ -46,11 +47,10 @@ const songFileInput = $('songFileInput');
 const searchInput   = $('searchInput');
 const dropZone      = $('dropZone');
 
-const toastGesture  = $('toastGesture');
-const toastAction   = $('toastAction');
-const toastHand     = $('toastHand');
 const lhGesture     = $('lhGesture');
 const rhGesture     = $('rhGesture');
+const lastGesture   = $('lastGesture');
+const lastAction    = $('lastAction');
 
 const visualizer    = $('visualizer');
 const vizCtx        = visualizer.getContext('2d');
@@ -66,7 +66,6 @@ const BUILT_IN_SONGS = [
 // ── App state ────────────────────────────────────────────────────────────────
 const player = new MusicPlayer();
 let gestureCtrl = null;
-let toastTimer  = null;
 let searchQuery = '';
 
 // ── Startup ──────────────────────────────────────────────────────────────────
@@ -139,22 +138,21 @@ async function init() {
 
 // ── Gesture handler ───────────────────────────────────────────────────────────
 function onGesture({ detail: { action, gesture, handedness } }) {
-  showToast(gesture, action, handedness);
-  showFlash(ACTION_LABELS[action] ?? action.toUpperCase());
+  showLastAction(gesture, action);
 
   switch (action) {
-    case 'play':          player.togglePlay();    break;
-    case 'stop':          player.stop();           break;
-    case 'skip':          player.skip();           break;
-    case 'rewind':        player.rewind();         break;
+    case 'play':          player.togglePlay();     break;
+    case 'stop':          player.stop();            break;
+    case 'skip':          player.skip();            break;
+    case 'rewind':        player.rewind();          break;
     case 'speed_up':      player.nudgeSpeed( 0.25); break;
     case 'speed_down':    player.nudgeSpeed(-0.25); break;
     case 'volume_up':     player.nudgeVolume( 0.03); break;
     case 'volume_down':   player.nudgeVolume(-0.03); break;
-    case 'shuffle':       player.playRandom();    break;
-    case 'like':          player.toggleLike();    break;
-    case 'seek_forward':  player.seekBy( 15);     break;
-    case 'seek_backward': player.seekBy(-15);     break;
+    case 'shuffle':       player.toggleShuffle();  break;
+    case 'like':          player.toggleLike();     break;
+    case 'seek_forward':  player.seekBy( 15);      break;
+    case 'seek_backward': player.seekBy(-15);      break;
   }
 }
 
@@ -171,6 +169,7 @@ function onStateChanged() {
   const playing = player.isPlaying;
   btnPlay.textContent = playing ? '⏸' : '▶';
   turntable.classList.toggle('spinning', playing);
+  tonearmPivot.classList.toggle('playing', playing);
 
   const song = player.currentSong;
   if (song) {
@@ -201,8 +200,8 @@ function onVolumeChanged() {
 
   // Clear previous boundary classes
   volFill.classList.remove('at-min', 'at-max');
-  if (pct === 0)   { volFill.classList.add('at-min'); showFlash('MUTED'); }
-  if (pct === 100) { volFill.classList.add('at-max'); showFlash('MAX VOL'); }
+  if (pct === 0)   volFill.classList.add('at-min');
+  if (pct === 100) volFill.classList.add('at-max');
 }
 
 function onSpeedChanged() {
@@ -290,35 +289,22 @@ function renderLikedList() {
   });
 }
 
-// ── Toast + flash ─────────────────────────────────────────────────────────────
-function showToast(gesture, action, handedness) {
-  toastGesture.textContent = GESTURE_LABELS[gesture] ?? gesture;
-  toastAction.textContent  = ACTION_LABELS[action]   ?? action.toUpperCase();
-  toastHand.textContent    = handedness ? `${handedness} Hand` : '';
-  toastAction.classList.remove('flash');
-  void toastAction.offsetWidth; // reflow
-  toastAction.classList.add('flash');
+// ── Last action display ───────────────────────────────────────────────────────
+let lastActionTimer = null;
+function showLastAction(gesture, action) {
+  if (!lastGesture || !lastAction) return;
+  lastGesture.textContent = GESTURE_LABELS[gesture] ?? gesture;
+  lastAction.textContent  = ACTION_LABELS[action]   ?? action.toUpperCase();
+  lastAction.classList.remove('pop');
+  void lastAction.offsetWidth;
+  lastAction.classList.add('pop');
 
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    toastAction.classList.remove('flash');
-    toastGesture.textContent = '—';
-    toastAction.textContent  = '';
-    toastHand.textContent    = '';
-  }, 1600);
-}
-
-let flashEl = null;
-function showFlash(text) {
-  if (!flashEl) {
-    flashEl = document.createElement('div');
-    flashEl.className = 'action-flash';
-    document.body.appendChild(flashEl);
-  }
-  flashEl.textContent = text;
-  flashEl.classList.remove('show');
-  void flashEl.offsetWidth;
-  flashEl.classList.add('show');
+  clearTimeout(lastActionTimer);
+  lastActionTimer = setTimeout(() => {
+    lastGesture.textContent = '—';
+    lastAction.textContent  = '';
+    lastAction.classList.remove('pop');
+  }, 2500);
 }
 
 // ── Visualizer ────────────────────────────────────────────────────────────────

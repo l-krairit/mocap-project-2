@@ -14,6 +14,7 @@ const webcamEl      = $('webcam');
 const gestureCanvas = $('gestureCanvas');
 
 const turntable     = $('turntable');
+const orbitTextPath = $('orbitTextPath');
 const discTitle     = $('discTitle');
 const discSub       = $('discSub');
 const trackName     = $('trackName');
@@ -171,6 +172,7 @@ function onStateChanged() {
   const playing = player.isPlaying;
   btnPlay.textContent = playing ? '⏸' : '▶';
   turntable.classList.toggle('spinning', playing);
+  turntable.parentElement?.classList.toggle('playing', playing);
 
   const song = player.currentSong;
   if (song) {
@@ -178,11 +180,18 @@ function onStateChanged() {
     trackArtist.textContent = song.artist;
     discTitle.textContent   = song.name.toUpperCase().slice(0, 14);
     discSub.textContent     = song.artist.toUpperCase().slice(0, 12);
+    if (orbitTextPath) {
+      const loop = `${song.name.toUpperCase()} • `;
+      orbitTextPath.textContent = (loop + loop + loop + loop).trim();
+    }
   } else {
     trackName.textContent   = 'No Track Selected';
     trackArtist.textContent = '—';
     discTitle.textContent   = 'SELECT';
     discSub.textContent     = 'A TRACK';
+    if (orbitTextPath) {
+      orbitTextPath.textContent = 'SELECT A TRACK • SELECT A TRACK •';
+    }
   }
 
   // Highlight active song in list
@@ -421,6 +430,8 @@ const GESTURE_LABELS = {
   Pointing_Down:'👇 Point Down',
   Thumb_Right:  '👍→ Thumb Right',
   Thumb_Left:   '←👍 Thumb Left',
+  Gun_Right:    '🔫→ Gun Right',
+  Gun_Left:     '←🔫 Gun Left',
   Victory:      '✌️ Victory',
   ILoveYou:     '🤟 I Love You',
   Closed_Fist:  '✊ Fist',

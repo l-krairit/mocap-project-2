@@ -11,8 +11,8 @@
  * Custom landmark-based gestures:
  *   OK          → play/pause  (thumb-index pinch, other fingers extended)
  *   Pointing_Down → speed down (index tip below MCP, others curled)
- *   Thumb_Right  → skip (RH) / +15s (LH)
- *   Thumb_Left   → rewind (RH) / -15s (LH)
+ *   Gun_Right    → skip (RH) / +15s (LH)
+ *   Gun_Left     → rewind (RH) / -15s (LH)
  */
 
 import {
@@ -192,6 +192,16 @@ export class GestureController extends EventTarget {
     const pinkyFolded  = Math.hypot(pinkyTip.x  - l[LM.PINKY_MCP].x,  pinkyTip.y  - l[LM.PINKY_MCP].y)  < 0.18;
     if (indexPointingDown && middleFolded && ringFolded && pinkyFolded) return 'Pointing_Down';
 
+    // "Gun" pose (for LH seek): index clearly horizontal + thumb up + other fingers folded
+    const idxNormX = idxLen > 0 ? idxVecX / idxLen : 0;
+    const indexHorizontal = idxLen > 0.09 && Math.abs(idxNormX) > 0.78;
+    const thumbUp = thumbTip.y < Math.min(l[LM.THUMB_IP].y, l[LM.THUMB_MCP].y) - 0.02;
+    if (indexHorizontal && thumbUp && middleFolded && ringFolded && pinkyFolded) {
+      // Raw camera coordinates are not mirrored. Pointing right (user perspective)
+      // appears as negative X direction in the frame.
+      return idxNormX < 0 ? 'Gun_Right' : 'Gun_Left';
+    }
+
     // Thumb left / right: all fingers curled, thumb extended horizontally
     if (indexCurl && middleCurl && ringCurl && pinkyCurl) {
       const dx = thumbTip.x - wrist.x;   // raw camera coords
@@ -250,8 +260,10 @@ export class GestureController extends EventTarget {
       case 'Pointing_Down':action = 'speed_down';  break;
       case 'Victory':      action = 'shuffle';     break;
       case 'ILoveYou':     action = 'like';        break;
-      case 'Thumb_Right':  action = isRight ? 'skip'   : 'seek_forward';  break;
-      case 'Thumb_Left':   action = isRight ? 'rewind' : 'seek_backward'; break;
+      case 'Thumb_Right':  action = null;                              break;
+      case 'Thumb_Left':   action = null;                              break;
+      case 'Gun_Right':    action = isRight ? 'skip' : 'seek_forward';  break;
+      case 'Gun_Left':     action = isRight ? 'rewind' : 'seek_backward'; break;
     }
 
     if (action) {

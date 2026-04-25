@@ -66,15 +66,31 @@
 
         <!-- Turntable + track info -->
         <div class="deck-row">
-          <div class="turntable-wrap">
-            <div class="turntable" id="turntable">
-              <div class="vinyl-grooves"></div>
-              <div class="disc-label" id="discLabel">
-                <span class="disc-title" id="discTitle">SELECT</span>
-                <span class="disc-subtitle" id="discSub">A TRACK</span>
+          <div class="turntable-plinth">
+            <div class="power-knob" aria-hidden="true"></div>
+            <div class="turntable-wrap">
+              <div class="record-orbit" aria-hidden="true">
+                <svg viewBox="0 0 420 420" role="presentation">
+                  <defs>
+                    <path id="orbitPath" d="M 210,210 m -190,0 a 190,190 0 1,1 380,0 a 190,190 0 1,1 -380,0" />
+                  </defs>
+                  <text>
+                    <textPath id="orbitTextPath" href="#orbitPath">SELECT A TRACK • SELECT A TRACK •</textPath>
+                  </text>
+                </svg>
               </div>
+
+              <div class="turntable" id="turntable">
+                <div class="vinyl-grooves"></div>
+                <div class="disc-label" id="discLabel">
+                  <span class="disc-title" id="discTitle">SELECT</span>
+                  <span class="disc-subtitle" id="discSub">A TRACK</span>
+                </div>
+              </div>
+              <div class="needle-pivot" aria-hidden="true"></div>
+              <div class="needle-arm" aria-hidden="true"></div>
+              <div class="needle-head" aria-hidden="true"></div>
             </div>
-            <div class="needle-arm"></div>
           </div>
 
           <div class="track-meta">
@@ -105,12 +121,12 @@
           </div>
 
           <div class="transport">
-            <button class="t-btn" id="btnRewind" title="Rewind (←👍 RH)">⏮</button>
-            <button class="t-btn seek-back" id="btnSeekBack" title="-15s (←👍 LH)">−15</button>
+            <button class="t-btn" id="btnRewind" title="Rewind (←🔫 RH)">⏮</button>
+            <button class="t-btn seek-back" id="btnSeekBack" title="-15s (←🔫 LH)">−15</button>
             <button class="t-btn play-btn" id="btnPlay" title="Play/Pause (👌)">▶</button>
             <button class="t-btn stop-btn" id="btnStop" title="Stop (✋)">⏹</button>
-            <button class="t-btn seek-fwd" id="btnSeekFwd" title="+15s (👍→ LH)">+15</button>
-            <button class="t-btn" id="btnSkip" title="Skip (👍→ RH)">⏭</button>
+            <button class="t-btn seek-fwd" id="btnSeekFwd" title="+15s (🔫→ LH)">+15</button>
+            <button class="t-btn" id="btnSkip" title="Skip (🔫→ RH)">⏭</button>
           </div>
 
           <div class="side-ctrl">
@@ -131,68 +147,6 @@
 
         <!-- Visualizer -->
         <canvas class="visualizer" id="visualizer"></canvas>
-
-        <!-- Gesture guide -->
-        <div class="gesture-guide">
-          <div class="guide-title">GESTURE CONTROLS</div>
-          <div class="guide-grid">
-            <div class="guide-card">
-              <div class="guide-emoji">✊</div>
-              <div class="guide-action">Volume</div>
-              <div class="guide-desc">Fist left / right</div>
-            </div>
-            <div class="guide-card">
-              <div class="guide-emoji">✋</div>
-              <div class="guide-action">Stop</div>
-              <div class="guide-desc">Open palm</div>
-            </div>
-            <div class="guide-card">
-              <div class="guide-emoji">👌</div>
-              <div class="guide-action">Play</div>
-              <div class="guide-desc">OK sign</div>
-            </div>
-            <div class="guide-card">
-              <div class="guide-emoji">☝️</div>
-              <div class="guide-action">Speed Up</div>
-              <div class="guide-desc">Point up</div>
-            </div>
-            <div class="guide-card">
-              <div class="guide-emoji">👇</div>
-              <div class="guide-action">Speed Down</div>
-              <div class="guide-desc">Point down</div>
-            </div>
-            <div class="guide-card rh">
-              <div class="guide-emoji"><span class="thumb-right">👍</span></div>
-              <div class="guide-action">Rewind</div>
-              <div class="guide-desc">Thumb right · RH</div>
-            </div>
-            <div class="guide-card rh">
-              <div class="guide-emoji"><span class="thumb-left">👍</span></div>
-              <div class="guide-action">Skip</div>
-              <div class="guide-desc">Thumb left · RH</div>
-            </div>
-            <div class="guide-card">
-              <div class="guide-emoji">✌️</div>
-              <div class="guide-action">Random Song</div>
-              <div class="guide-desc">Victory sign</div>
-            </div>
-            <div class="guide-card">
-              <div class="guide-emoji">🤟</div>
-              <div class="guide-action">Like ♥</div>
-              <div class="guide-desc">Finger heart</div>
-            </div>
-            <div class="guide-card lh">
-              <div class="guide-emoji"><span class="thumb-right">👍</span></div>
-              <div class="guide-action">−15 sec</div>
-              <div class="guide-desc">Thumb right · LH</div>
-            </div>
-            <div class="guide-card lh">
-              <div class="guide-emoji"><span class="thumb-left">👍</span></div>
-              <div class="guide-action">+15 sec</div>
-              <div class="guide-desc">Thumb left · LH</div>
-            </div>
-          </div>
-        </div>
 
       </section>
 
@@ -232,8 +186,70 @@
       </aside>
 
     </main>
+
+    <!-- Bottom gesture guide -->
+    <section class="gesture-guide" aria-label="Gesture controls">
+      <div class="guide-title">GESTURE CONTROLS</div>
+      <div class="guide-grid">
+        <div class="guide-card">
+          <div class="guide-emoji">✊</div>
+          <div class="guide-action">Volume</div>
+          <div class="guide-desc">Fist left / right</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-emoji">✋</div>
+          <div class="guide-action">Stop</div>
+          <div class="guide-desc">Open palm</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-emoji">👌</div>
+          <div class="guide-action">Play</div>
+          <div class="guide-desc">OK sign</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-emoji">☝️</div>
+          <div class="guide-action">Speed Up</div>
+          <div class="guide-desc">Point up</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-emoji">👇</div>
+          <div class="guide-action">Speed Down</div>
+          <div class="guide-desc">Point down</div>
+        </div>
+        <div class="guide-card rh">
+          <div class="guide-emoji">🔫→</div>
+          <div class="guide-action">Skip</div>
+          <div class="guide-desc">Gun right · RH</div>
+        </div>
+        <div class="guide-card rh">
+          <div class="guide-emoji">←🔫</div>
+          <div class="guide-action">Rewind</div>
+          <div class="guide-desc">Gun left · RH</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-emoji">✌️</div>
+          <div class="guide-action">Random Song</div>
+          <div class="guide-desc">Victory sign</div>
+        </div>
+        <div class="guide-card">
+          <div class="guide-emoji">🤟</div>
+          <div class="guide-action">Like ♥</div>
+          <div class="guide-desc">Finger heart</div>
+        </div>
+        <div class="guide-card lh">
+          <div class="guide-emoji">←🔫</div>
+          <div class="guide-action">−15 sec</div>
+          <div class="guide-desc">Gun left · LH</div>
+        </div>
+        <div class="guide-card lh">
+          <div class="guide-emoji">🔫→</div>
+          <div class="guide-action">+15 sec</div>
+          <div class="guide-desc">Gun right · LH</div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <script type="module" src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>

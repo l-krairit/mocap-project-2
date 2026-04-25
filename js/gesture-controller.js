@@ -43,6 +43,8 @@ export class GestureController extends EventTarget {
 
   // Separate timestamps so continuous and discrete gestures never block each other
   #lastActionTime = 0;   // governs discrete gestures only
+  #lastSeekTime   = 0;   // governs seek gestures (+15s / -15s) independently
+  #lastSkipTime   = 0;   // governs skip / rewind independently
   #lastVolumeTime = 0;   // governs volume nudges (RH fist)
   #lastSpeedTime  = 0;   // governs speed nudges  (both hands pointing)
   #lastFistTime   = 0;   // suppresses Open_Palm→stop during fist transitions
@@ -50,6 +52,8 @@ export class GestureController extends EventTarget {
   #wristYHistory = new Map();
 
   static GLOBAL_COOLDOWN = 1800;  // ms between discrete gesture triggers
+  static SEEK_COOLDOWN   = 600;   // ms between seek nudges (+15s / -15s)
+  static SKIP_COOLDOWN   = 2000;  // ms between skip / rewind triggers
   static VOLUME_COOLDOWN = 1200;  // ms between volume nudges (fist movement)
   static SPEED_COOLDOWN  = 1200;  // ms between speed nudges  (both hands pointing)
 
@@ -262,8 +266,8 @@ export class GestureController extends EventTarget {
       if (prev !== undefined) {
         const dy = wristY - prev;
         if (isRight && now - this.#lastVolumeTime > GestureController.VOLUME_COOLDOWN) {
-          if (dy < -0.012) { this.#lastVolumeTime = now; this.#fire('volume_up',   gesture, handedness); }
-          else if (dy > 0.012) { this.#lastVolumeTime = now; this.#fire('volume_down', gesture, handedness); }
+          if (dy < -0.008) { this.#lastVolumeTime = now; this.#fire('volume_up',   gesture, handedness); }
+          else if (dy > 0.008) { this.#lastVolumeTime = now; this.#fire('volume_down', gesture, handedness); }
         }
       }
       this.#lastFistTime = now;
@@ -281,8 +285,23 @@ export class GestureController extends EventTarget {
       case 'OK':           action = 'play';        break;
       case 'Victory':      action = 'shuffle';     break;
       case 'ILoveYou':     action = 'like';        break;
-      case 'Gun_Right':    action = isRight ? 'skip' : 'seek_forward';   break;
-      case 'Gun_Left':     action = isRight ? 'rewind' : 'seek_backward'; break;
+      case 'Gun_Right':
+      case 'Gun_Left': {
+        if (isRight) {
+          const skipAction = gesture === 'Gun_Right' ? 'skip' : 'rewind';
+          if (now - this.#lastSkipTime > GestureController.SKIP_COOLDOWN) {
+            this.#lastSkipTime = now;
+            this.#fire(skipAction, gesture, handedness);
+          }
+        } else {
+          const seekAction = gesture === 'Gun_Right' ? 'seek_forward' : 'seek_backward';
+          if (now - this.#lastSeekTime > GestureController.SEEK_COOLDOWN) {
+            this.#lastSeekTime = now;
+            this.#fire(seekAction, gesture, handedness);
+          }
+        }
+        return;
+      }
     }
 
     if (action) {

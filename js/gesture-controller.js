@@ -46,16 +46,16 @@ export class GestureController extends EventTarget {
   #lastSeekTime   = 0;   // governs seek gestures (+15s / -15s) independently
   #lastSkipTime   = 0;   // governs skip / rewind independently
   #lastVolumeTime = 0;   // governs volume nudges (RH fist)
-  #lastSpeedTime  = 0;   // governs speed nudges  (both hands pointing)
+  #lastSpeedTime  = 0;   // governs speed nudges  (LH fist)
   #lastFistTime   = 0;   // suppresses Open_Palm→stop during fist transitions
-  // Per-hand wrist X history for fist-movement detection
-  #wristYHistory = new Map();
+  // Per-hand anchor Y: recorded when fist first forms, reset after each trigger
+  #fistAnchorY = new Map();
 
   static GLOBAL_COOLDOWN = 1800;  // ms between discrete gesture triggers
   static SEEK_COOLDOWN   = 600;   // ms between seek nudges (+15s / -15s)
   static SKIP_COOLDOWN   = 2000;  // ms between skip / rewind triggers
-  static VOLUME_COOLDOWN = 1200;  // ms between volume nudges (fist movement)
-  static SPEED_COOLDOWN  = 1200;  // ms between speed nudges  (both hands pointing)
+  static VOLUME_COOLDOWN = 500;   // ms debounce after each volume nudge
+  static SPEED_COOLDOWN  = 500;   // ms debounce after each speed nudge
 
   constructor(videoEl, canvasEl) {
     super();
@@ -131,10 +131,10 @@ export class GestureController extends EventTarget {
     }
 
     if (results.gestures?.length) {
-      // Clear stale wrist history for hands no longer visible
+      // Clear stale anchors for hands no longer visible
       const activeHandCount = results.gestures.length;
-      for (const key of this.#wristYHistory.keys()) {
-        if (key >= activeHandCount) this.#wristYHistory.delete(key);
+      for (const key of this.#fistAnchorY.keys()) {
+        if (key >= activeHandCount) this.#fistAnchorY.delete(key);
       }
 
       // Collect all hands then emit one frameUpdate
@@ -153,7 +153,7 @@ export class GestureController extends EventTarget {
       this.#routeTwoHandSpeed(hands);
       this.#dispatch('frameUpdate', { hands });
     } else {
-      this.#wristYHistory.clear();
+      this.#fistAnchorY.clear();
       this.#dispatch('frameUpdate', { hands: [] });
     }
 
@@ -257,24 +257,46 @@ export class GestureController extends EventTarget {
     const isRight = handedness === 'Right';
     const now = Date.now();
 
-    // ── Continuous: Closed fist + vertical wrist movement (RH volume only) ──
-    // Image Y increases downward: fist moves up → dy < 0 → up
-    //                             fist moves down → dy > 0 → down
+    // ── Continuous: Closed fist + vertical movement ──
+    // RH → volume,  LH → speed
+    // Anchor is set when the fist first forms. Action fires once total
+    // displacement from anchor exceeds 0.05 (≈5% of frame height — a clear,
+    // deliberate move). Anchor resets to current position after each fire so
+    // continuous movement keeps nudging without re-forming the fist.
     if (gesture === 'Closed_Fist') {
       const wristY = landmarks[LM.WRIST].y;
-      const prev   = this.#wristYHistory.get(handIdx);
-      if (prev !== undefined) {
-        const dy = wristY - prev;
-        if (isRight && now - this.#lastVolumeTime > GestureController.VOLUME_COOLDOWN) {
-          if (dy < -0.008) { this.#lastVolumeTime = now; this.#fire('volume_up',   gesture, handedness); }
-          else if (dy > 0.008) { this.#lastVolumeTime = now; this.#fire('volume_down', gesture, handedness); }
+      if (!this.#fistAnchorY.has(handIdx)) this.#fistAnchorY.set(handIdx, wristY);
+      const dy = wristY - this.#fistAnchorY.get(handIdx);
+
+      if (isRight) {
+        if (now - this.#lastVolumeTime > GestureController.VOLUME_COOLDOWN) {
+          if (dy < -0.05) {
+            this.#lastVolumeTime = now;
+            this.#fistAnchorY.set(handIdx, wristY);
+            this.#fire('volume_up', gesture, handedness);
+          } else if (dy > 0.05) {
+            this.#lastVolumeTime = now;
+            this.#fistAnchorY.set(handIdx, wristY);
+            this.#fire('volume_down', gesture, handedness);
+          }
+        }
+      } else {
+        if (now - this.#lastSpeedTime > GestureController.SPEED_COOLDOWN) {
+          if (dy < -0.05) {
+            this.#lastSpeedTime = now;
+            this.#fistAnchorY.set(handIdx, wristY);
+            this.#fire('speed_up', gesture, handedness);
+          } else if (dy > 0.05) {
+            this.#lastSpeedTime = now;
+            this.#fistAnchorY.set(handIdx, wristY);
+            this.#fire('speed_down', gesture, handedness);
+          }
         }
       }
       this.#lastFistTime = now;
-      this.#wristYHistory.set(handIdx, wristY);
       return;
     }
-    this.#wristYHistory.delete(handIdx);
+    this.#fistAnchorY.delete(handIdx);
 
     // ── Discrete gestures: one action per GLOBAL_COOLDOWN window ──
     if (now - this.#lastActionTime < GestureController.GLOBAL_COOLDOWN) return;

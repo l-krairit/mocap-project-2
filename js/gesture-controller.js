@@ -45,16 +45,15 @@ export class GestureController extends EventTarget {
   #lastActionTime = 0;   // governs discrete gestures only
   #lastSeekTime   = 0;   // governs seek gestures (+15s / -15s) independently
   #lastSkipTime   = 0;   // governs skip / rewind independently
-  #lastVolumeTime = 0;   // governs volume nudges (RH fist)
+  #lastVolumeUpTime   = 0;  // governs volume_up nudges independently
+  #lastVolumeDownTime = 0;  // governs volume_down nudges independently
   #lastSpeedTime  = 0;   // governs speed nudges  (LH fist)
   #lastFistTime   = 0;   // suppresses Open_Palm→stop during fist transitions
-  // Per-hand anchor Y: recorded when fist first forms, reset after each trigger
-  #fistAnchorY = new Map();
 
   static GLOBAL_COOLDOWN = 1800;  // ms between discrete gesture triggers
   static SEEK_COOLDOWN   = 600;   // ms between seek nudges (+15s / -15s)
   static SKIP_COOLDOWN   = 2000;  // ms between skip / rewind triggers
-  static VOLUME_COOLDOWN = 500;   // ms debounce after each volume nudge
+  static VOLUME_COOLDOWN = 200;   // ms debounce after each volume nudge (per direction)
   static SPEED_COOLDOWN  = 500;   // ms debounce after each speed nudge
 
   constructor(videoEl, canvasEl) {
@@ -131,12 +130,6 @@ export class GestureController extends EventTarget {
     }
 
     if (results.gestures?.length) {
-      // Clear stale anchors for hands no longer visible
-      const activeHandCount = results.gestures.length;
-      for (const key of this.#fistAnchorY.keys()) {
-        if (key >= activeHandCount) this.#fistAnchorY.delete(key);
-      }
-
       // Collect all hands then emit one frameUpdate
       const hands = [];
       results.gestures.forEach((gestures, i) => {
@@ -151,9 +144,9 @@ export class GestureController extends EventTarget {
       });
 
       this.#routeTwoHandSpeed(hands);
+      this.#routeTwoHandVolume(hands);
       this.#dispatch('frameUpdate', { hands });
     } else {
-      this.#fistAnchorY.clear();
       this.#dispatch('frameUpdate', { hands: [] });
     }
 
@@ -199,6 +192,7 @@ export class GestureController extends EventTarget {
 
     // Pointing down: index direction is downward + other fingers folded close to their MCPs
     // Using tip-to-MCP distance avoids Y-axis assumptions when the hand is rotated
+    const indexFolded  = Math.hypot(indexTip.x  - l[LM.INDEX_MCP].x,  indexTip.y  - l[LM.INDEX_MCP].y)  < 0.18;
     const middleFolded = Math.hypot(middleTip.x - l[LM.MIDDLE_MCP].x, middleTip.y - l[LM.MIDDLE_MCP].y) < 0.18;
     const ringFolded   = Math.hypot(ringTip.x   - l[LM.RING_MCP].x,   ringTip.y   - l[LM.RING_MCP].y)   < 0.18;
     const pinkyFolded  = Math.hypot(pinkyTip.x  - l[LM.PINKY_MCP].x,  pinkyTip.y  - l[LM.PINKY_MCP].y)  < 0.18;
@@ -214,7 +208,8 @@ export class GestureController extends EventTarget {
     }
 
     // Thumb up / down / left / right: all fingers curled, thumb clearly extended + oriented
-    if (indexCurl && middleCurl && ringCurl && pinkyCurl) {
+    // OR-in distance-based folding so tilted/lowered fists still register
+    if ((indexCurl || indexFolded) && (middleCurl || middleFolded) && (ringCurl || ringFolded) && (pinkyCurl || pinkyFolded)) {
       const dx = thumbTip.x - wrist.x; // raw camera coords
       const dy = thumbTip.y - wrist.y;
       const adx = Math.abs(dx);
@@ -229,7 +224,7 @@ export class GestureController extends EventTarget {
       const thumbSegmentStraight = Math.hypot(thumbTip.x - thumbIp.x, thumbTip.y - thumbIp.y) > 0.05;
 
       if (!(thumbExtended && thumbFarFromPalm && thumbSegmentStraight)) {
-        return builtIn;
+        return 'Closed_Fist';
       }
 
       // Vertical thumbs for LH speed controls
@@ -237,11 +232,13 @@ export class GestureController extends EventTarget {
         return dy < -0.03 ? 'Thumb_Up' : dy > 0.03 ? 'Thumb_Down' : builtIn;
       }
 
-      // Horizontal thumbs remain available for readout/debugging
-      if (adx > ady * 1.15 && adx > 0.10) {
-        // Raw camera: user's right hand, thumb right → thumb appears to camera's LEFT → dx < 0
-        // (The canvas is CSS-mirrored so visually it shows correctly)
-        return dx < 0 ? 'Thumb_Right' : 'Thumb_Left';
+      // Horizontal thumbs — use MCP→TIP vector (purer direction than wrist→tip)
+      // Relaxed ratio: thumb doesn't need to be perfectly horizontal
+      const tAdx = Math.abs(thumbVecX);
+      const tAdy = Math.abs(thumbVecY);
+      if (tAdx > tAdy * 0.9 && thumbLen > 0.08) {
+        // Raw camera: user's right hand, thumb right → thumb appears to camera's LEFT → thumbVecX < 0
+        return thumbVecX < 0 ? 'Thumb_Right' : 'Thumb_Left';
       }
     }
 
@@ -257,46 +254,10 @@ export class GestureController extends EventTarget {
     const isRight = handedness === 'Right';
     const now = Date.now();
 
-    // ── Continuous: Closed fist + vertical movement ──
-    // RH → volume,  LH → speed
-    // Anchor is set when the fist first forms. Action fires once total
-    // displacement from anchor exceeds 0.05 (≈5% of frame height — a clear,
-    // deliberate move). Anchor resets to current position after each fire so
-    // continuous movement keeps nudging without re-forming the fist.
     if (gesture === 'Closed_Fist') {
-      const wristY = landmarks[LM.WRIST].y;
-      if (!this.#fistAnchorY.has(handIdx)) this.#fistAnchorY.set(handIdx, wristY);
-      const dy = wristY - this.#fistAnchorY.get(handIdx);
-
-      if (isRight) {
-        if (now - this.#lastVolumeTime > GestureController.VOLUME_COOLDOWN) {
-          if (dy < -0.05) {
-            this.#lastVolumeTime = now;
-            this.#fistAnchorY.set(handIdx, wristY);
-            this.#fire('volume_up', gesture, handedness);
-          } else if (dy > 0.05) {
-            this.#lastVolumeTime = now;
-            this.#fistAnchorY.set(handIdx, wristY);
-            this.#fire('volume_down', gesture, handedness);
-          }
-        }
-      } else {
-        if (now - this.#lastSpeedTime > GestureController.SPEED_COOLDOWN) {
-          if (dy < -0.05) {
-            this.#lastSpeedTime = now;
-            this.#fistAnchorY.set(handIdx, wristY);
-            this.#fire('speed_up', gesture, handedness);
-          } else if (dy > 0.05) {
-            this.#lastSpeedTime = now;
-            this.#fistAnchorY.set(handIdx, wristY);
-            this.#fire('speed_down', gesture, handedness);
-          }
-        }
-      }
       this.#lastFistTime = now;
       return;
     }
-    this.#fistAnchorY.delete(handIdx);
 
     // ── Discrete gestures: one action per GLOBAL_COOLDOWN window ──
     if (now - this.#lastActionTime < GestureController.GLOBAL_COOLDOWN) return;
@@ -304,7 +265,7 @@ export class GestureController extends EventTarget {
     let action = null;
     switch (gesture) {
       case 'Open_Palm':    if (now - this.#lastFistTime > 1000) action = 'stop'; break;
-      case 'OK':           action = 'play';        break;
+      case 'OK':           if (now - this.#lastFistTime > 1000) action = 'play'; break;
       case 'Victory':      action = 'shuffle';     break;
       case 'ILoveYou':     action = 'like';        break;
       case 'Gun_Right':
@@ -355,6 +316,25 @@ export class GestureController extends EventTarget {
     if (left.gesture === 'Pointing_Down' && right.gesture === 'Pointing_Down') {
       this.#lastSpeedTime = now;
       this.#fire('speed_down', 'Pointing_Down', 'Both');
+    }
+  }
+
+  #routeTwoHandVolume(hands) {
+    const leftFist  = hands.find(h => h.handedness === 'Left'  && h.gesture === 'Closed_Fist');
+    const rightFist = hands.find(h => h.handedness === 'Right' && h.gesture === 'Closed_Fist');
+
+    if (!leftFist || !rightFist) return;
+
+    const avgY = (leftFist.landmarks[LM.WRIST].y + rightFist.landmarks[LM.WRIST].y) / 2;
+    const now = Date.now();
+
+    // Screen split: top half (y < 0.5) = volume up, bottom half (y >= 0.5) = volume down
+    if (avgY < 0.5 && now - this.#lastVolumeUpTime > GestureController.VOLUME_COOLDOWN) {
+      this.#lastVolumeUpTime = now;
+      this.#fire('volume_up', 'Closed_Fist', 'Both');
+    } else if (avgY >= 0.5 && now - this.#lastVolumeDownTime > GestureController.VOLUME_COOLDOWN) {
+      this.#lastVolumeDownTime = now;
+      this.#fire('volume_down', 'Closed_Fist', 'Both');
     }
   }
 

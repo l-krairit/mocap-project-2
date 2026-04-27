@@ -584,8 +584,10 @@ button { font-family: inherit; cursor: pointer; }
   transition: background .15s, border-color .15s;
 }
 .guide-card:hover { background: var(--surface3); border-color: var(--border2); }
-.guide-card.rh { border-color: rgba(108,99,255,.7); }
-.guide-card.lh { border-color: rgba(52,211,153,.6); }
+.guide-card.rh   { border-color: rgba(108,99,255,.7); }
+.guide-card.lh   { border-color: rgba(52,211,153,.6); }
+.guide-card.both { border-color: rgba(248,113,113,.7); background: rgba(248,113,113,.06); }
+.guide-card.both:hover { border-color: var(--red); }
 
 .guide-emoji { font-size: 1.4rem; line-height: 1; margin-bottom: 5px; }
 .thumb-right { display: inline-block; transform: rotate(-90deg); }
@@ -695,6 +697,9 @@ button { font-family: inherit; cursor: pointer; }
 .last-action.pop {
   color: var(--accent);
   animation: popIn .2s ease-out;
+}
+.last-action.pop.pop-red {
+  color: var(--red);
 }
 @keyframes popIn { from { transform: scale(1.06); } to { transform: scale(1); } }
 

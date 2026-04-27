@@ -316,15 +316,17 @@ function showLastAction(gesture, action) {
   if (!lastGesture || !lastAction) return;
   lastGesture.textContent = GESTURE_LABELS[gesture] ?? gesture;
   lastAction.textContent  = ACTION_LABELS[action]   ?? action.toUpperCase();
-  lastAction.classList.remove('pop');
+  const isRedAction = action.startsWith('volume') || action.startsWith('speed');
+  lastAction.classList.remove('pop', 'pop-red');
   void lastAction.offsetWidth;
   lastAction.classList.add('pop');
+  if (isRedAction) lastAction.classList.add('pop-red');
 
   clearTimeout(lastActionTimer);
   lastActionTimer = setTimeout(() => {
     lastGesture.textContent = '—';
     lastAction.textContent  = '';
-    lastAction.classList.remove('pop');
+    lastAction.classList.remove('pop', 'pop-red');
   }, 2500);
 }
 
@@ -434,7 +436,7 @@ const GESTURE_LABELS = {
   Gun_Left:    '👈 Point Left',
   Victory:     '✌️ Victory',
   ILoveYou:    '🤟 I Love You',
-  Closed_Fist: '✊ Fist',
+  Closed_Fist: '✊✊ Both Fists',
 };
 
 const ACTION_LABELS = {

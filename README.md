@@ -8,6 +8,39 @@ GestureBeats is a browser-based DJ controller that combines webcam gesture recog
 
 The visual layout lives in `index.html` and `css/style.css`.
 
+## Setup & Run
+
+The app runs entirely in the browser. You can open `index.html` directly, but using a local static server is recommended (some browsers restrict module/WASM loading from the file:// protocol).
+
+- Quick open: double-click `index.html` or open it from your browser.
+
+- Recommended — start a local server and open http://localhost:8000:
+
+  - With Python 3 (works on Windows/macOS/Linux):
+
+    ```bash
+    # from project root
+    python -m http.server 8000
+    ```
+
+    or (Windows) if you need the `py` launcher:
+
+    ```bash
+    py -3 -m http.server 8000
+    ```
+
+  - With Node (no install required):
+
+    ```bash
+    npx http-server -c-1 -p 8000
+    ```
+
+  - From VS Code: install and run the "Live Server" extension on the project folder.
+
+After the server is running, open http://localhost:8000 in your browser and grant webcam permission when prompted. If audio playback is blocked, interact with the page (click Play) to satisfy browser autoplay policies.
+
+Supported browsers: recent Chrome, Edge, and Firefox releases. Localhost serves as a secure origin for getUserMedia and MediaPipe assets.
+
 ## System Overview
 
 The application runs entirely in the browser. It does not require a backend or database.
